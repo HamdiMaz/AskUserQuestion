@@ -1,0 +1,38 @@
+{
+  "name": "pi-ask-user-question",
+  "version": "1.0.0",
+  "description": "Claude Code-style AskUserQuestion tool for pi.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "ask-user-question",
+    "terminal-ui",
+    "tui"
+  ],
+  "homepage": "https://github.com/HamdiMaz/AskUserQuestion#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HamdiMaz/AskUserQuestion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HamdiMaz/AskUserQuestion/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  }
+}
