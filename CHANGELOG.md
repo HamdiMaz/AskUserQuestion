@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0
+## v1.0.0
 
 - Initial release.
 - Adds the `AskUserQuestion` pi extension tool.
