@@ -20,6 +20,12 @@ This package adds a global LLM-callable tool named `AskUserQuestion`. The tool l
 
 ## Install
 
+From npm:
+
+```bash
+pi install npm:@mazli/pi-ask-user-question
+```
+
 From GitHub:
 
 ```bash
@@ -33,6 +39,12 @@ pi install git:github.com/HamdiMaz/AskUserQuestion@v1.0.0
 ```
 
 For a one-off test without installing:
+
+```bash
+pi -e npm:@mazli/pi-ask-user-question
+```
+
+or:
 
 ```bash
 pi -e git:github.com/HamdiMaz/AskUserQuestion
