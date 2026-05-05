@@ -102,7 +102,7 @@ Keep header ≤12 chars and label to 1-5 words.
 Use preview only for visual comparisons, and only on single-select questions.
 question must end with ?. Phrase multi-select questions in plural ("Which features…").`;
 
-function validateParams(params: AskUserQuestionParams): string | undefined {
+export function validateParams(params: AskUserQuestionParams): string | undefined {
 	if (params.questions.length < 1 || params.questions.length > 8) {
 		return "questions must have 1–8 items";
 	}
@@ -167,6 +167,30 @@ function plainPreviewLines(text: string, width: number): string[] {
 
 function stringifyResult(result: AskUserQuestionResult): string {
 	return JSON.stringify(result, null, 2);
+}
+
+export function hasSubmitTab(questionCount: number): boolean {
+	return questionCount > 1;
+}
+
+export function submitTabIndex(questionCount: number): number | undefined {
+	return hasSubmitTab(questionCount) ? questionCount : undefined;
+}
+
+export function isSubmitTab(tabIndex: number, questionCount: number): boolean {
+	return submitTabIndex(questionCount) === tabIndex;
+}
+
+export function missingQuestionHeaders(questions: AskUserQuestionQuestion[], answers: Record<string, string>): string[] {
+	return questions.filter((question) => !Object.hasOwn(answers, question.question)).map((question) => question.header);
+}
+
+export function nextQuestionOrSubmitTab(currentIndex: number, questions: AskUserQuestionQuestion[], answers: Record<string, string>): number | "submit" {
+	for (let offset = 1; offset <= questions.length; offset++) {
+		const candidate = (currentIndex + offset) % questions.length;
+		if (!Object.hasOwn(answers, questions[candidate]!.question)) return candidate;
+	}
+	return hasSubmitTab(questions.length) ? "submit" : currentIndex;
 }
 
 function createCancelledResult(): AskUserQuestionResult {

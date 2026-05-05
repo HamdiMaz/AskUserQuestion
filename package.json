@@ -19,6 +19,9 @@
   },
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  },
   "files": [
     "extensions",
     "README.md",
