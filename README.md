@@ -37,7 +37,7 @@ pi install git:github.com/HamdiMaz/AskUserQuestion
 Pinned to a release tag:
 
 ```bash
-pi install git:github.com/HamdiMaz/AskUserQuestion@v1.0.0
+pi install git:github.com/HamdiMaz/AskUserQuestion@v1.1.0
 ```
 
 For a one-off test without installing:

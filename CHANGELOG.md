@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.1.0
+
 - Add a review/submit tab for multi-question `AskUserQuestion` dialogs.
 - Improve terminal dialog color hierarchy for focus, answered tabs, warnings, and review actions.
 - Change double-Esc dismissal to return control to chat without an immediate model follow-up.
