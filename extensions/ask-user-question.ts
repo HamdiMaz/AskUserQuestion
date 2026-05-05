@@ -217,10 +217,12 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 			}
 
 			const questions = params.questions;
+			let shouldTerminateAfterDialog = false;
 			const result =
 				(await ctx.ui.custom<AskUserQuestionResult>((tui, theme, _keybindings, done) => {
-					let currentQuestionIndex = 0;
+					let currentTabIndex = 0;
 					let optionIndex = 0;
+					let submitPickerIndex = 0;
 					let inputMode: InputMode = null;
 					let pendingEscape = false;
 					let showHelp = false;
@@ -249,8 +251,19 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						tui.requestRender();
 					}
 
+					const multiQuestion = questions.length > 1;
+					const reviewTabIndex = questions.length;
+
+					function currentQuestionIndex(): number {
+						return Math.min(currentTabIndex, questions.length - 1);
+					}
+
+					function onSubmitTab(): boolean {
+						return multiQuestion && currentTabIndex === reviewTabIndex;
+					}
+
 					function currentQuestion(): AskUserQuestionQuestion {
-						return questions[currentQuestionIndex];
+						return questions[currentQuestionIndex()]!;
 					}
 
 					function currentOptions(): DisplayOption[] {
@@ -258,10 +271,11 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 					}
 
 					function currentMultiSelection(): Set<number> {
-						let selection = selectedMulti.get(currentQuestionIndex);
+						const questionIndex = currentQuestionIndex();
+						let selection = selectedMulti.get(questionIndex);
 						if (!selection) {
 							selection = new Set<number>();
-							selectedMulti.set(currentQuestionIndex, selection);
+							selectedMulti.set(questionIndex, selection);
 						}
 						return selection;
 					}
@@ -270,23 +284,28 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						return questions.every((question) => Object.hasOwn(answers, question.question));
 					}
 
-					function moveToNextQuestionOrFinish() {
-						if (allAnswered()) {
-							const finalAnnotations = Object.keys(annotations).length > 0 ? annotations : undefined;
-							done({ cancelled: false, answers, annotations: finalAnnotations });
+					function finishWithAnswers() {
+						const finalAnnotations = Object.keys(annotations).length > 0 ? annotations : undefined;
+						done({ cancelled: false, answers, annotations: finalAnnotations });
+					}
+
+					function moveToNextQuestionOrReview() {
+						if (!multiQuestion) {
+							finishWithAnswers();
 							return;
 						}
 
-						for (let offset = 1; offset <= questions.length; offset++) {
-							const candidate = (currentQuestionIndex + offset) % questions.length;
-							if (!Object.hasOwn(answers, questions[candidate].question)) {
-								currentQuestionIndex = candidate;
-								optionIndex = 0;
-								statusMessage = "";
-								refresh();
-								return;
-							}
-						}
+						const next = nextQuestionOrSubmitTab(currentQuestionIndex(), questions, answers);
+						currentTabIndex = next === "submit" ? reviewTabIndex : next;
+						optionIndex = 0;
+						submitPickerIndex = 0;
+						statusMessage = "";
+						refresh();
+					}
+
+					function dismissToChat() {
+						shouldTerminateAfterDialog = true;
+						done(createCancelledResult());
 					}
 
 					function saveAnnotation(question: AskUserQuestionQuestion, patch: AskUserQuestionAnnotation) {
@@ -300,14 +319,15 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						if (option.preview) {
 							saveAnnotation(question, { preview: option.preview });
 						}
-						moveToNextQuestionOrFinish();
+						moveToNextQuestionOrReview();
 					}
 
 					function saveMultiAnswer() {
 						const question = currentQuestion();
+						const questionIndex = currentQuestionIndex();
 						const selection = currentMultiSelection();
-						if (selection.size === 0 && !emptySelectionWarnings.has(currentQuestionIndex)) {
-							emptySelectionWarnings.add(currentQuestionIndex);
+						if (selection.size === 0 && !emptySelectionWarnings.has(questionIndex)) {
+							emptySelectionWarnings.add(questionIndex);
 							statusMessage = "No options selected. Press Enter again to confirm an empty answer.";
 							refresh();
 							return;
@@ -318,7 +338,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 							.map((index) => options[index]?.label)
 							.filter((label): label is string => label !== undefined);
 						answers[question.question] = labels.join(", ");
-						moveToNextQuestionOrFinish();
+						moveToNextQuestionOrReview();
 					}
 
 					function startInput(mode: InputMode) {
@@ -342,7 +362,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 							answers[question.question] = text;
 							inputMode = null;
 							editor.setText("");
-							moveToNextQuestionOrFinish();
+							moveToNextQuestionOrReview();
 							return;
 						}
 
@@ -388,14 +408,14 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						} else {
 							selection.add(optionIndex);
 						}
-						emptySelectionWarnings.delete(currentQuestionIndex);
+						emptySelectionWarnings.delete(currentQuestionIndex());
 						statusMessage = "";
 						refresh();
 					}
 
 					function handleInput(data: string) {
 						if (matchesKey(data, Key.ctrl("c"))) {
-							done(createCancelledResult());
+							dismissToChat();
 							return;
 						}
 
@@ -420,15 +440,63 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 						if (matchesKey(data, Key.escape)) {
 							if (pendingEscape) {
-								done(createCancelledResult());
+								dismissToChat();
 								return;
 							}
 							pendingEscape = true;
-							statusMessage = "Press Esc again to cancel.";
+							statusMessage = "Press Esc again to dismiss and return to chat.";
 							refresh();
 							return;
 						}
 						pendingEscape = false;
+
+						const totalTabs = multiQuestion ? questions.length + 1 : questions.length;
+						if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
+							currentTabIndex = (currentTabIndex + 1) % totalTabs;
+							optionIndex = onSubmitTab() ? 0 : Math.min(optionIndex, currentOptions().length - 1);
+							submitPickerIndex = 0;
+							statusMessage = "";
+							refresh();
+							return;
+						}
+						if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
+							currentTabIndex = (currentTabIndex - 1 + totalTabs) % totalTabs;
+							optionIndex = onSubmitTab() ? 0 : Math.min(optionIndex, currentOptions().length - 1);
+							submitPickerIndex = 0;
+							statusMessage = "";
+							refresh();
+							return;
+						}
+
+						if (onSubmitTab()) {
+							if (matchesKey(data, Key.up) || matchesKey(data, "k")) {
+								submitPickerIndex = Math.max(0, submitPickerIndex - 1);
+								statusMessage = "";
+								refresh();
+								return;
+							}
+							if (matchesKey(data, Key.down) || matchesKey(data, "j")) {
+								submitPickerIndex = Math.min(1, submitPickerIndex + 1);
+								statusMessage = "";
+								refresh();
+								return;
+							}
+							if (matchesKey(data, Key.enter)) {
+								if (submitPickerIndex === 1) {
+									dismissToChat();
+									return;
+								}
+								const missing = missingQuestionHeaders(questions, answers);
+								if (missing.length > 0) {
+									statusMessage = `Answer remaining questions before submitting: ${missing.join(", ")}`;
+									refresh();
+									return;
+								}
+								finishWithAnswers();
+								return;
+							}
+							return;
+						}
 
 						const question = currentQuestion();
 						const options = currentOptions();
@@ -441,20 +509,6 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						}
 						if (matchesKey(data, Key.down) || matchesKey(data, "j")) {
 							optionIndex = Math.min(options.length - 1, optionIndex + 1);
-							statusMessage = "";
-							refresh();
-							return;
-						}
-						if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
-							currentQuestionIndex = (currentQuestionIndex + 1) % questions.length;
-							optionIndex = Math.min(optionIndex, currentOptions().length - 1);
-							statusMessage = "";
-							refresh();
-							return;
-						}
-						if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
-							currentQuestionIndex = (currentQuestionIndex - 1 + questions.length) % questions.length;
-							optionIndex = Math.min(optionIndex, currentOptions().length - 1);
 							statusMessage = "";
 							refresh();
 							return;
@@ -486,12 +540,18 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 					function chipBar(width: number): string {
 						const chips = questions.map((question, index) => {
 							const answered = Object.hasOwn(answers, question.question);
-							const active = index === currentQuestionIndex;
+							const active = !onSubmitTab() && index === currentQuestionIndex();
 							const marker = answered ? "✓" : "○";
 							const raw = `[${marker} ${question.header}]`;
 							if (active) return theme.bg("selectedBg", theme.fg("text", raw));
 							return theme.fg(answered ? "success" : "muted", raw);
 						});
+
+						if (multiQuestion) {
+							const raw = "[✓ Submit]";
+							chips.push(onSubmitTab() ? theme.bg("selectedBg", theme.fg("text", raw)) : theme.fg(allAnswered() ? "success" : "dim", raw));
+						}
+
 						return truncateToWidth(chips.join(" "), width);
 					}
 
@@ -548,25 +608,60 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						}
 					}
 
+					function renderSubmitPickerRow(index: number, label: string): string {
+						const focused = submitPickerIndex === index;
+						const prefix = focused ? theme.fg("accent", "› ") : "  ";
+						const row = `${prefix}${index + 1}. ${label}`;
+						return focused ? theme.bg("selectedBg", theme.fg("text", row)) : theme.fg(index === 0 ? "success" : "muted", row);
+					}
+
+					function renderSubmitTab(lines: string[], innerWidth: number) {
+						addBoxLine(lines, theme.fg("accent", theme.bold("Review your answers")), innerWidth);
+						addBoxLine(lines, "", innerWidth);
+
+						for (const question of questions) {
+							const answer = answers[question.question];
+							if (!answer) continue;
+							addBoxLine(lines, `${theme.fg("muted", "• ")}${theme.fg("accent", question.header)}`, innerWidth);
+							for (const answerLine of wrapTextWithAnsi(`→ ${answer}`, Math.max(1, innerWidth - 2))) {
+								addBoxLine(lines, `  ${theme.fg("text", answerLine)}`, innerWidth);
+							}
+						}
+
+						const missing = missingQuestionHeaders(questions, answers);
+						if (missing.length > 0) {
+							addBoxLine(lines, "", innerWidth);
+							addBoxLine(lines, theme.fg("warning", `⚠ Answer remaining questions before submitting: ${missing.join(", ")}`), innerWidth);
+						}
+
+						addBoxLine(lines, "", innerWidth);
+						addBoxLine(lines, renderSubmitPickerRow(0, "Submit answers"), innerWidth);
+						addBoxLine(lines, renderSubmitPickerRow(1, "Cancel / return to chat"), innerWidth);
+					}
+
 					function render(width: number): string[] {
 						if (cachedLines) return cachedLines;
 						const safeWidth = Math.max(40, width);
 						const innerWidth = safeWidth - 4;
 						const lines: string[] = [];
 						const question = currentQuestion();
-						const title = ` Question ${currentQuestionIndex + 1}/${questions.length} `;
+						const title = onSubmitTab() ? " Review answers " : ` Question ${currentQuestionIndex() + 1}/${questions.length} `;
 						const topFill = Math.max(0, safeWidth - visibleWidth(title) - 2);
 
 						lines.push(theme.fg("accent", `╭─${title}${"─".repeat(topFill)}╮`));
 						addBoxLine(lines, chipBar(innerWidth), innerWidth);
 						addBoxLine(lines, "", innerWidth);
 
-						for (const qLine of wrapTextWithAnsi(question.question, innerWidth)) {
-							addBoxLine(lines, theme.fg("text", qLine), innerWidth);
+						if (!onSubmitTab()) {
+							for (const qLine of wrapTextWithAnsi(question.question, innerWidth)) {
+								addBoxLine(lines, theme.fg("text", qLine), innerWidth);
+							}
+							addBoxLine(lines, "", innerWidth);
 						}
-						addBoxLine(lines, "", innerWidth);
 
-						if (showHelp) {
+						if (onSubmitTab()) {
+							renderSubmitTab(lines, innerWidth);
+						} else if (showHelp) {
 							const helpLines = [
 								"↑/↓ or j/k: move focus",
 								"space: toggle a multi-select option",
@@ -595,9 +690,11 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						}
 						const controls = inputMode
 							? "Enter submit • Esc back"
-							: question.multiSelect
-								? "↑↓/jk move • Space toggle • Enter confirm • o Other • n notes • ? help"
-								: "↑↓/jk move • Enter select • o Other • n notes • Tab questions • ? help";
+							: onSubmitTab()
+								? "↑↓/jk move • Enter confirm • Tab questions • Esc Esc return to chat"
+								: question.multiSelect
+									? "↑↓/jk move • Space toggle • Enter confirm • o Other • n notes • ? help"
+									: "↑↓/jk move • Enter select • o Other • n notes • Tab questions • ? help";
 						addBoxLine(lines, theme.fg("dim", controls), innerWidth);
 						lines.push(theme.fg("accent", `╰${"─".repeat(safeWidth - 2)}╯`));
 
@@ -617,6 +714,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 			return {
 				content: [{ type: "text", text: stringifyResult(result) }],
 				details: result,
+				...(shouldTerminateAfterDialog ? { terminate: true } : {}),
 			};
 		},
 
