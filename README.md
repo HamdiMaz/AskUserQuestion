@@ -13,9 +13,11 @@ This package adds a global LLM-callable tool named `AskUserQuestion`. The tool l
 - Auto-added `Other...` custom text input
 - Optional per-answer notes with `n`
 - Side-by-side preview panel for single-select visual/code comparisons
+- Dedicated review/submit tab for multi-question dialogs
+- Richer color states for focus, answered tabs, warnings, and review actions
 - Arrow-key navigation, plus `j`/`k`
 - `Tab` / `Shift+Tab` between questions
-- `Esc` then `Esc` cancellation
+- `Esc` then `Esc` dismisses the dialog and returns control to chat
 - Input validation before rendering
 
 ## Install
@@ -76,13 +78,15 @@ Normal result:
 }
 ```
 
-Cancelled result:
+Cancelled or dismissed result:
 
 ```json
 {
   "cancelled": true
 }
 ```
+
+When the dialog is dismissed with `Esc` then `Esc`, pi returns to the chatbox without an immediate model follow-up so you can steer the conversation.
 
 ## Agent usage guidance
 

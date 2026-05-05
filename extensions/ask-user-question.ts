@@ -669,7 +669,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 								"o or Other...: type a custom answer",
 								"n: add notes for the focused option",
 								"tab / shift+tab: jump between questions",
-								"esc then esc: cancel the whole prompt",
+								"esc then esc: dismiss and return to chat",
 								"?: close this help",
 							];
 							for (const line of helpLines) addBoxLine(lines, theme.fg("muted", line), innerWidth);
