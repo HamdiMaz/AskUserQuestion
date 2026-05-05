@@ -193,6 +193,10 @@ export function nextQuestionOrSubmitTab(currentIndex: number, questions: AskUser
 	return hasSubmitTab(questions.length) ? "submit" : currentIndex;
 }
 
+export function answerDisplayText(answer: string): string {
+	return answer === "" ? "(empty answer)" : answer;
+}
+
 function createCancelledResult(): AskUserQuestionResult {
 	return { cancelled: true };
 }
@@ -620,8 +624,8 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						addBoxLine(lines, "", innerWidth);
 
 						for (const question of questions) {
-							const answer = answers[question.question];
-							if (!answer) continue;
+							if (!Object.hasOwn(answers, question.question)) continue;
+							const answer = answerDisplayText(answers[question.question] ?? "");
 							addBoxLine(lines, `${theme.fg("muted", "• ")}${theme.fg("accent", question.header)}`, innerWidth);
 							for (const answerLine of wrapTextWithAnsi(`→ ${answer}`, Math.max(1, innerWidth - 2))) {
 								addBoxLine(lines, `  ${theme.fg("text", answerLine)}`, innerWidth);

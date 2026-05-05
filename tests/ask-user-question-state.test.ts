@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+	answerDisplayText,
 	hasSubmitTab,
 	isSubmitTab,
 	missingQuestionHeaders,
@@ -83,5 +84,10 @@ describe("AskUserQuestion submit tab helpers", () => {
 			}),
 			"submit",
 		);
+	});
+
+	it("keeps empty multi-select answers visible in review", () => {
+		assert.equal(answerDisplayText(""), "(empty answer)");
+		assert.equal(answerDisplayText("Unit tests"), "Unit tests");
 	});
 });
