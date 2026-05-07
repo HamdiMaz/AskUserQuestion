@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
 	answerDisplayText,
+	formatOptionLabelLine,
 	hasSubmitTab,
 	isSubmitTab,
 	missingQuestionHeaders,
@@ -89,5 +90,26 @@ describe("AskUserQuestion submit tab helpers", () => {
 	it("keeps empty multi-select answers visible in review", () => {
 		assert.equal(answerDisplayText(""), "(empty answer)");
 		assert.equal(answerDisplayText("Unit tests"), "Unit tests");
+	});
+});
+
+describe("AskUserQuestion option rendering", () => {
+	const styles = {
+		accent: (text: string) => `<accent>${text}</accent>`,
+		text: (text: string) => `<text>${text}</text>`,
+	};
+
+	it("colors the focused marker and label with the accent style", () => {
+		assert.equal(
+			formatOptionLabelLine(true, "●", "VPN only (Recommended)", styles),
+			"<accent>› </accent><accent>● VPN only (Recommended)</accent>",
+		);
+	});
+
+	it("keeps unfocused marker and label in the text style", () => {
+		assert.equal(
+			formatOptionLabelLine(false, "○", "Cloudflare Access", styles),
+			"  <text>○ Cloudflare Access</text>",
+		);
 	});
 });

@@ -156,6 +156,19 @@ function padAnsi(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
 }
 
+type OptionTextStyle = (text: string) => string;
+
+export interface OptionLabelLineStyles {
+	accent: OptionTextStyle;
+	text: OptionTextStyle;
+}
+
+export function formatOptionLabelLine(focused: boolean, marker: string, label: string, styles: OptionLabelLineStyles): string {
+	const prefix = focused ? styles.accent("› ") : "  ";
+	const markerAndLabel = `${marker} ${label}`;
+	return `${prefix}${focused ? styles.accent(markerAndLabel) : styles.text(markerAndLabel)}`;
+}
+
 function plainPreviewLines(text: string, width: number): string[] {
 	const lines: string[] = [];
 	for (const sourceLine of text.split("\n")) {
@@ -571,7 +584,6 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						for (let i = 0; i < options.length; i++) {
 							const option = options[i];
 							const focused = i === optionIndex;
-							const prefix = focused ? theme.fg("accent", "› ") : "  ";
 							const marker = question.multiSelect
 								? multiSelection.has(i)
 									? "[x]"
@@ -579,8 +591,12 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 								: focused
 									? "●"
 									: "○";
-							const label = `${prefix}${marker} ${option.label}`;
-							lines.push(focused ? theme.fg("accent", label) : theme.fg("text", label));
+							lines.push(
+								formatOptionLabelLine(focused, marker, option.label, {
+									accent: (text) => theme.fg("accent", text),
+									text: (text) => theme.fg("text", text),
+								}),
+							);
 
 							for (const descriptionLine of wrapTextWithAnsi(option.description, Math.max(1, width - 6))) {
 								lines.push(`      ${theme.fg("muted", descriptionLine)}`);
