@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Highlight the focused answer marker and label in `AskUserQuestion` dialogs with the accent color.
+
 ## v1.1.0
 
 - Add a review/submit tab for multi-question `AskUserQuestion` dialogs.
