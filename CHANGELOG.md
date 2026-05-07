@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.2.0
+
 - Highlight the focused answer marker and label in `AskUserQuestion` dialogs with the accent color.
 
 ## v1.1.0
