@@ -158,7 +158,7 @@ Change the top of `CHANGELOG.md` to:
 
 ## v1.3.2
 
-- Replace deprecated `@mariozechner/*` pi peer dependencies and imports with `@earendil-works/*` package names.
+- Replace deprecated pi peer dependencies and imports with `@earendil-works/*` package names.
 ```
 
 Keep the existing `v1.3.1` and older sections below.
@@ -175,7 +175,7 @@ Run:
 npm test
 npm pack --dry-run
 git diff --check
-rg '@mariozechner' package.json extensions/index.ts tests README.md CHANGELOG.md
+rg '@mariozechner' package.json extensions/index.ts README.md
 ```
 
 Expected:
@@ -183,7 +183,7 @@ Expected:
 - `npm test` reports all tests passing.
 - `npm pack --dry-run` lists the intended package files.
 - `git diff --check` prints no whitespace errors.
-- `rg '@mariozechner' ...` exits with status 1 and no matches.
+- `rg '@mariozechner' package.json extensions/index.ts README.md` exits with status 1 and no matches in shipped/runtime metadata.
 
 - [ ] **Step 4: Commit release metadata**
 
