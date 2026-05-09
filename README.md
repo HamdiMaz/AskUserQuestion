@@ -20,6 +20,30 @@ This package adds a global LLM-callable tool named `AskUserQuestion`. The tool l
 - `Esc` then `Esc` dismisses the dialog and returns control to chat
 - Input validation before rendering
 
+## Screenshots
+
+These examples show the full multi-question flow rendered by the tool.
+
+### Single-select and custom `Other...` answers
+
+![Single-select question with a custom Other answer](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.1/screenshots/screenshot-2026-05-09_04-01-35.png)
+
+### Multi-select choices
+
+![Multi-select question with selected choices](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.1/screenshots/screenshot-2026-05-09_04-02-00.png)
+
+### Side-by-side preview panel
+
+![Single-select question with a side-by-side preview panel](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.1/screenshots/screenshot-2026-05-09_04-02-26.png)
+
+### Focus and answered-tab states
+
+![Question showing focused answer and completed question tabs](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.1/screenshots/screenshot-2026-05-09_04-02-47.png)
+
+### Review and submit step
+
+![Review answers screen before submitting](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.1/screenshots/screenshot-2026-05-09_04-03-04.png)
+
 ## Install
 
 From npm:
@@ -37,7 +61,7 @@ pi install git:github.com/HamdiMaz/AskUserQuestion
 Pinned to a release tag:
 
 ```bash
-pi install git:github.com/HamdiMaz/AskUserQuestion@v1.3.0
+pi install git:github.com/HamdiMaz/AskUserQuestion@v1.3.1
 ```
 
 For a one-off test without installing:

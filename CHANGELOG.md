@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.3.1
+
+- Add README screenshots for single-select, multi-select, preview, tone, and review/submit states.
+- Include screenshot assets in the npm package.
+
 ## v1.3.0
 
 - Clarify in the tool prompt that agents can batch 2–8 related questions when useful without making batching mandatory.
