@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.3.2
+
+- Replace deprecated pi peer dependencies and imports with `@earendil-works/*` package names.
+
 ## v1.3.1
 
 - Add README screenshots for single-select, multi-select, preview, tone, and review/submit states.
