@@ -15,4 +15,21 @@ describe("package manifest", () => {
 		assert.equal(existsSync(new URL("extensions/index.ts", packageRootUrl)), true);
 		assert.equal(existsSync(new URL("extensions/ask-user-question.ts", packageRootUrl)), false);
 	});
+
+	it("uses current @earendil-works pi package names", () => {
+		const packageJsonText = readFileSync(packageJsonUrl, "utf8");
+		const packageJson = JSON.parse(packageJsonText) as {
+			peerDependencies?: Record<string, string>;
+		};
+		const extensionSource = readFileSync(new URL("extensions/index.ts", packageRootUrl), "utf8");
+
+		assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-coding-agent"], "*");
+		assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-tui"], "*");
+		assert.equal(packageJson.peerDependencies?.["@mariozechner/pi-coding-agent"], undefined);
+		assert.equal(packageJson.peerDependencies?.["@mariozechner/pi-tui"], undefined);
+		assert.doesNotMatch(packageJsonText, /@mariozechner\//);
+		assert.doesNotMatch(extensionSource, /@mariozechner\//);
+		assert.match(extensionSource, /@earendil-works\/pi-coding-agent/);
+		assert.match(extensionSource, /@earendil-works\/pi-tui/);
+	});
 });
