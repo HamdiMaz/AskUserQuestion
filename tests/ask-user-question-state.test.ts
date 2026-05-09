@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
 	answerDisplayText,
+	formatOptionDescriptionText,
 	formatOptionLabelLine,
 	hasSubmitTab,
 	isSubmitTab,
 	missingQuestionHeaders,
 	nextQuestionOrSubmitTab,
+	optionMarker,
+	promptGuidance,
+	promptSnippet,
 	submitTabIndex,
 	validateParams,
-} from "../extensions/ask-user-question.ts";
+} from "../extensions/index.ts";
 
 const questions = [
 	{
@@ -59,6 +63,15 @@ describe("AskUserQuestion validation", () => {
 	});
 });
 
+describe("AskUserQuestion prompt guidance", () => {
+	it("makes batching related questions explicit without requiring it", () => {
+		assert.equal(promptSnippet, "Ask the user one or more structured questions, batching up to 8 related questions when useful.");
+		assert.match(promptGuidance, /can ask one question or a batch of related questions/i);
+		assert.match(promptGuidance, /Use multiple questions when several independent decisions are needed/i);
+		assert.match(promptGuidance, /Use a single question when only one decision is blocking progress/i);
+	});
+});
+
 describe("AskUserQuestion submit tab helpers", () => {
 	it("only adds a submit tab for multi-question calls", () => {
 		assert.equal(hasSubmitTab(1), false);
@@ -96,20 +109,44 @@ describe("AskUserQuestion submit tab helpers", () => {
 describe("AskUserQuestion option rendering", () => {
 	const styles = {
 		accent: (text: string) => `<accent>${text}</accent>`,
+		selected: (text: string) => `<selected>${text}</selected>`,
 		text: (text: string) => `<text>${text}</text>`,
 	};
 
-	it("colors the focused marker and label with the accent style", () => {
+	it("colors the focused marker and label with the accent style when not selected", () => {
 		assert.equal(
-			formatOptionLabelLine(true, "●", "VPN only (Recommended)", styles),
+			formatOptionLabelLine(true, false, "●", "VPN only (Recommended)", styles),
 			"<accent>› </accent><accent>● VPN only (Recommended)</accent>",
 		);
 	});
 
-	it("keeps unfocused marker and label in the text style", () => {
+	it("colors selected marker and label with the selected style even when focused", () => {
 		assert.equal(
-			formatOptionLabelLine(false, "○", "Cloudflare Access", styles),
+			formatOptionLabelLine(true, true, "✓", "VPN only (Recommended)", styles),
+			"<accent>› </accent><selected>✓ VPN only (Recommended)</selected>",
+		);
+	});
+
+	it("keeps unfocused unselected marker and label in the text style", () => {
+		assert.equal(
+			formatOptionLabelLine(false, false, "○", "Cloudflare Access", styles),
 			"  <text>○ Cloudflare Access</text>",
 		);
+	});
+
+	it("uses a check mark for selected single-select answers", () => {
+		assert.equal(optionMarker(false, false, true), "✓");
+		assert.equal(optionMarker(false, true, true), "✓");
+	});
+
+	it("uses a capital X for selected multi-select answers", () => {
+		assert.equal(optionMarker(true, false, true), "[X]");
+		assert.equal(optionMarker(true, true, true), "[X]");
+	});
+
+	it("replaces the selected Other description with the custom answer", () => {
+		assert.equal(formatOptionDescriptionText("Type a custom answer.", true, true, "Use SQLite"), "Use SQLite");
+		assert.equal(formatOptionDescriptionText("Type a custom answer.", true, false, "Use SQLite"), "Type a custom answer.");
+		assert.equal(formatOptionDescriptionText("Minimal change.", false, true, "Use SQLite"), "Minimal change.");
 	});
 });

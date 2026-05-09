@@ -80,11 +80,18 @@ const AskUserQuestionParameters = Type.Object(
 	{ additionalProperties: false },
 );
 
-const promptGuidance = `When to use AskUserQuestion:
+export const promptSnippet = "Ask the user one or more structured questions, batching up to 8 related questions when useful.";
+
+export const promptGuidance = `When to use AskUserQuestion:
 
 You face 2-4 reasonable paths and the user's preference materially changes the outcome.
 You hit ambiguity that you cannot resolve from context.
 You want to surface a recommendation while still letting the user steer.
+
+AskUserQuestion can ask one question or a batch of related questions in the same call.
+Use multiple questions when several independent decisions are needed before continuing, especially during requirements gathering or option selection.
+Use a single question when only one decision is blocking progress or when asking step-by-step would be clearer.
+Do not split clearly related decisions into separate tool calls just because single-question dialogs feel safer; batching 2-8 related questions is allowed and often preferred.
 
 When NOT to use it:
 
@@ -160,13 +167,24 @@ type OptionTextStyle = (text: string) => string;
 
 export interface OptionLabelLineStyles {
 	accent: OptionTextStyle;
+	selected: OptionTextStyle;
 	text: OptionTextStyle;
 }
 
-export function formatOptionLabelLine(focused: boolean, marker: string, label: string, styles: OptionLabelLineStyles): string {
+export function optionMarker(multiSelect: boolean, focused: boolean, selected: boolean): string {
+	if (selected) return multiSelect ? "[X]" : "✓";
+	return multiSelect ? "[ ]" : focused ? "●" : "○";
+}
+
+export function formatOptionLabelLine(focused: boolean, selected: boolean, marker: string, label: string, styles: OptionLabelLineStyles): string {
 	const prefix = focused ? styles.accent("› ") : "  ";
 	const markerAndLabel = `${marker} ${label}`;
-	return `${prefix}${focused ? styles.accent(markerAndLabel) : styles.text(markerAndLabel)}`;
+	const style = selected ? styles.selected : focused ? styles.accent : styles.text;
+	return `${prefix}${style(markerAndLabel)}`;
+}
+
+export function formatOptionDescriptionText(description: string, isOther: boolean | undefined, selected: boolean, customAnswer: string | undefined): string {
+	return isOther && selected && customAnswer !== undefined ? answerDisplayText(customAnswer) : description;
 }
 
 function plainPreviewLines(text: string, width: number): string[] {
@@ -220,7 +238,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 		label: "Ask User Question",
 		description:
 			"Use this tool when you need to ask the user questions during execution. Allows you to gather preferences, clarify ambiguity, get decisions on implementation choices, or offer directional choices. Users always have an Other option to provide custom text. Use multiSelect: true when answers aren't mutually exclusive. If recommending an option, place it first and suffix its label with ' (Recommended)'. Use preview only for visual side-by-side comparisons (mockups, code, diagrams) and only with single-select.",
-		promptSnippet: "Ask the user 1-8 structured questions with terminal arrow-key selection and optional custom answers.",
+		promptSnippet,
 		promptGuidelines: [`Use AskUserQuestion as follows:\n\n${promptGuidance}`],
 		parameters: AskUserQuestionParameters,
 
@@ -248,7 +266,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 					const answers: Record<string, string> = {};
 					const annotations: Record<string, AskUserQuestionAnnotation> = {};
+					const selectedSingle = new Map<number, number>();
 					const selectedMulti = new Map<number, Set<number>>();
+					const selectedOtherQuestions = new Set<number>();
+					const customOtherAnswers = new Map<number, string>();
 					const emptySelectionWarnings = new Set<number>();
 
 					const editorTheme: EditorTheme = {
@@ -297,6 +318,28 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						return selection;
 					}
 
+					function isOptionSelected(question: AskUserQuestionQuestion, questionIndex: number, index: number, option: DisplayOption, multiSelection: Set<number>): boolean {
+						if (question.multiSelect) {
+							return multiSelection.has(index) || (option.isOther === true && selectedOtherQuestions.has(questionIndex));
+						}
+						return selectedSingle.get(questionIndex) === index;
+					}
+
+					function multiAnswerText(questionIndex: number, selection: Set<number>, options: DisplayOption[]): string {
+						const labels = Array.from(selection)
+							.sort((a, b) => a - b)
+							.map((index) => options[index])
+							.filter((option): option is DisplayOption => option !== undefined && option.isOther !== true)
+							.map((option) => option.label);
+
+						if (selectedOtherQuestions.has(questionIndex)) {
+							const customAnswer = customOtherAnswers.get(questionIndex);
+							if (customAnswer !== undefined) labels.push(customAnswer);
+						}
+
+						return labels.join(", ");
+					}
+
 					function allAnswered(): boolean {
 						return questions.every((question) => Object.hasOwn(answers, question.question));
 					}
@@ -332,6 +375,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 					function saveSingleAnswer(option: DisplayOption) {
 						const question = currentQuestion();
+						const questionIndex = currentQuestionIndex();
+						selectedSingle.set(questionIndex, optionIndex);
+						selectedOtherQuestions.delete(questionIndex);
+						customOtherAnswers.delete(questionIndex);
 						answers[question.question] = option.label;
 						if (option.preview) {
 							saveAnnotation(question, { preview: option.preview });
@@ -343,18 +390,14 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						const question = currentQuestion();
 						const questionIndex = currentQuestionIndex();
 						const selection = currentMultiSelection();
-						if (selection.size === 0 && !emptySelectionWarnings.has(questionIndex)) {
+						const hasSelection = selection.size > 0 || selectedOtherQuestions.has(questionIndex);
+						if (!hasSelection && !emptySelectionWarnings.has(questionIndex)) {
 							emptySelectionWarnings.add(questionIndex);
 							statusMessage = "No options selected. Press Enter again to confirm an empty answer.";
 							refresh();
 							return;
 						}
-						const options = currentOptions();
-						const labels = Array.from(selection)
-							.sort((a, b) => a - b)
-							.map((index) => options[index]?.label)
-							.filter((label): label is string => label !== undefined);
-						answers[question.question] = labels.join(", ");
+						answers[question.question] = multiAnswerText(questionIndex, selection, currentOptions());
 						moveToNextQuestionOrReview();
 					}
 
@@ -362,7 +405,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						inputMode = mode;
 						pendingEscape = false;
 						statusMessage = mode === "other" ? "Type a custom answer." : "Add a note for the focused option.";
-						editor.setText("");
+						editor.setText(mode === "other" ? (customOtherAnswers.get(currentQuestionIndex()) ?? "") : "");
 						refresh();
 					}
 
@@ -376,7 +419,16 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 						const question = currentQuestion();
 						if (inputMode === "other") {
-							answers[question.question] = text;
+							const questionIndex = currentQuestionIndex();
+							const options = currentOptions();
+							selectedOtherQuestions.add(questionIndex);
+							customOtherAnswers.set(questionIndex, text);
+							if (question.multiSelect) {
+								answers[question.question] = multiAnswerText(questionIndex, currentMultiSelection(), options);
+							} else {
+								selectedSingle.set(questionIndex, options.length - 1);
+								answers[question.question] = text;
+							}
 							inputMode = null;
 							editor.setText("");
 							moveToNextQuestionOrReview();
@@ -578,28 +630,28 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 					function optionLines(question: AskUserQuestionQuestion, width: number): string[] {
 						const options = displayOptions(question);
-						const multiSelection = currentMultiSelection();
+						const questionIndex = currentQuestionIndex();
+						const multiSelection = question.multiSelect ? currentMultiSelection() : new Set<number>();
 						const lines: string[] = [];
 
 						for (let i = 0; i < options.length; i++) {
 							const option = options[i];
 							const focused = i === optionIndex;
-							const marker = question.multiSelect
-								? multiSelection.has(i)
-									? "[x]"
-									: "[ ]"
-								: focused
-									? "●"
-									: "○";
+							const selected = isOptionSelected(question, questionIndex, i, option, multiSelection);
+							const marker = optionMarker(question.multiSelect, focused, selected);
 							lines.push(
-								formatOptionLabelLine(focused, marker, option.label, {
+								formatOptionLabelLine(focused, selected, marker, option.label, {
 									accent: (text) => theme.fg("accent", text),
+									selected: (text) => theme.fg("warning", text),
 									text: (text) => theme.fg("text", text),
 								}),
 							);
 
-							for (const descriptionLine of wrapTextWithAnsi(option.description, Math.max(1, width - 6))) {
-								lines.push(`      ${theme.fg("muted", descriptionLine)}`);
+							const customOtherSelected = option.isOther === true && selected && customOtherAnswers.has(questionIndex);
+							const description = formatOptionDescriptionText(option.description, option.isOther, selected, customOtherAnswers.get(questionIndex));
+							const descriptionStyle = customOtherSelected ? "warning" : "muted";
+							for (const descriptionLine of wrapTextWithAnsi(description, Math.max(1, width - 6))) {
+								lines.push(`      ${theme.fg(descriptionStyle, descriptionLine)}`);
 							}
 						}
 						return lines.map((line) => truncateToWidth(line, width));

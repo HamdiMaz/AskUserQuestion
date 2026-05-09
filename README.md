@@ -37,7 +37,7 @@ pi install git:github.com/HamdiMaz/AskUserQuestion
 Pinned to a release tag:
 
 ```bash
-pi install git:github.com/HamdiMaz/AskUserQuestion@v1.2.0
+pi install git:github.com/HamdiMaz/AskUserQuestion@v1.3.0
 ```
 
 For a one-off test without installing:
@@ -102,6 +102,13 @@ Do not use it for:
 - Plan approval. Use the planning flow instead.
 - Questions that can be reasonably inferred from project conventions or prior context.
 - More than 8 questions at once. Use sequential calls instead.
+
+Batching guidance:
+
+- `AskUserQuestion` can ask one question or a batch of related questions in the same call.
+- Use multiple questions when several independent decisions are needed before continuing.
+- Use a single question when only one decision is blocking progress or step-by-step questioning is clearer.
+- Batching 2–8 related questions is allowed and often preferred; it is not mandatory.
 
 Authoring rules:
 
@@ -168,7 +175,7 @@ Authoring rules:
 Clone this repo, then run pi with the extension directly:
 
 ```bash
-pi -e ./extensions/ask-user-question.ts
+pi -e ./extensions/index.ts
 ```
 
 Or install the local package:
