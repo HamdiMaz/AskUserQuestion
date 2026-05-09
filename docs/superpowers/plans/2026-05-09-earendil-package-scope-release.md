@@ -222,12 +222,12 @@ Expected:
 - npm authentication succeeds.
 - npm currently reports an older version than `1.3.2`.
 
-- [ ] **Step 2: Merge to main and verify on main**
+- [ ] **Step 2: Merge to main in the primary worktree and verify on main**
 
-Run:
+Run from `/home/maz/Projects/AskUserQuestion`, where `main` is checked out:
 
 ```bash
-git checkout main
+cd /home/maz/Projects/AskUserQuestion
 git pull --ff-only origin main
 git merge --ff-only release/v1.3.2-new-scope
 npm install --no-package-lock
@@ -237,7 +237,7 @@ npm pack --dry-run
 git status --short --branch
 ```
 
-Expected: fast-forward merge succeeds, verification passes, and no uncommitted tracked changes remain.
+Expected: fast-forward merge succeeds in the primary worktree, verification passes, and no uncommitted tracked changes remain.
 
 - [ ] **Step 3: Tag and push**
 
