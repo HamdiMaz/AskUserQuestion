@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.3.3
+
+- Wrap long `AskUserQuestion` tool-call summaries and dialog question chips instead of truncating later questions.
+- Hide Pi's `Working...` row while the `AskUserQuestion` dialog is open.
+
 ## v1.3.2
 
 - Replace deprecated pi peer dependencies and imports with `@earendil-works/*` package names.
