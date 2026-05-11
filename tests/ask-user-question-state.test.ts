@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
+import { visibleWidth } from "@earendil-works/pi-tui";
+import askUserQuestion, {
 	answerDisplayText,
 	formatOptionDescriptionText,
 	formatOptionLabelLine,
@@ -13,6 +14,7 @@ import {
 	promptSnippet,
 	submitTabIndex,
 	validateParams,
+	wrapInlineItems,
 } from "../extensions/index.ts";
 
 const questions = [
@@ -35,6 +37,54 @@ const questions = [
 		],
 	},
 ];
+
+const longHeaderQuestions = [
+	"Tech spec",
+	"Design spec",
+	"Reviews",
+	"Commit rule",
+	"Issue export",
+	"Startup",
+].map((header) => ({
+	question: `Which ${header} option should we use?`,
+	header,
+	multiSelect: false,
+	options: [
+		{ label: "First", description: "First option." },
+		{ label: "Second", description: "Second option." },
+	],
+}));
+
+const passthroughTheme = {
+	fg: (_color: string, text: string) => text,
+	bg: (_color: string, text: string) => text,
+	bold: (text: string) => text,
+};
+
+function registerAskUserQuestionTool() {
+	let registeredTool: any;
+	askUserQuestion({
+		registerTool(tool: any) {
+			registeredTool = tool;
+		},
+	} as any);
+	return registeredTool;
+}
+
+async function withInteractiveTty<T>(fn: () => Promise<T>): Promise<T> {
+	const stdinDescriptor = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+	const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+	Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: true });
+	Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true });
+	try {
+		return await fn();
+	} finally {
+		if (stdinDescriptor) Object.defineProperty(process.stdin, "isTTY", stdinDescriptor);
+		else delete (process.stdin as { isTTY?: boolean }).isTTY;
+		if (stdoutDescriptor) Object.defineProperty(process.stdout, "isTTY", stdoutDescriptor);
+		else delete (process.stdout as { isTTY?: boolean }).isTTY;
+	}
+}
 
 describe("AskUserQuestion validation", () => {
 	it("accepts a valid multi-question payload", () => {
@@ -103,6 +153,69 @@ describe("AskUserQuestion submit tab helpers", () => {
 	it("keeps empty multi-select answers visible in review", () => {
 		assert.equal(answerDisplayText(""), "(empty answer)");
 		assert.equal(answerDisplayText("Unit tests"), "Unit tests");
+	});
+});
+
+describe("AskUserQuestion wrapping", () => {
+	it("wraps inline chip lists instead of truncating the tail", () => {
+		const lines = wrapInlineItems(["[✓ Tech]", "[✓ Design]", "[✓ Reviews]", "[✓ Commit]"], 22);
+		assert.deepEqual(lines, ["[✓ Tech] [✓ Design]", "[✓ Reviews] [✓ Commit]"]);
+	});
+
+	it("truncates only an individual chip that cannot fit on one line", () => {
+		const [line] = wrapInlineItems(["[✓ ExtremelyLongHeader]"], 10);
+		assert.ok(line);
+		assert.equal(visibleWidth(line), 10);
+		assert.match(line, /\.\.\./);
+	});
+
+	it("keeps all headers visible in the tool call summary", () => {
+		const tool = registerAskUserQuestionTool();
+		const component = tool.renderCall({ questions: longHeaderQuestions }, passthroughTheme, {});
+		const text = component.render(64).join("\n");
+		assert.match(text, /Tech spec/);
+		assert.match(text, /Startup/);
+	});
+
+	it("keeps all tab chips visible in the custom dialog on narrow terminals", async () => {
+		const tool = registerAskUserQuestionTool();
+		let renderedText = "";
+
+		await withInteractiveTty(async () => {
+			await tool.execute("tool-call-id", { questions: longHeaderQuestions }, undefined, undefined, {
+				hasUI: true,
+				ui: {
+					custom: async (factory: any) => {
+						const component = factory({ requestRender() {} }, passthroughTheme, undefined, () => {});
+						renderedText = component.render(60).join("\n");
+						return { cancelled: true };
+					},
+					setWorkingVisible() {},
+				},
+			});
+		});
+
+		assert.match(renderedText, /Tech spec/);
+		assert.match(renderedText, /Startup/);
+	});
+});
+
+describe("AskUserQuestion working indicator", () => {
+	it("hides Pi's working row while the dialog is open and restores it afterwards", async () => {
+		const tool = registerAskUserQuestionTool();
+		const visibleCalls: boolean[] = [];
+
+		await withInteractiveTty(async () => {
+			await tool.execute("tool-call-id", { questions }, undefined, undefined, {
+				hasUI: true,
+				ui: {
+					custom: async () => ({ cancelled: true }),
+					setWorkingVisible: (visible: boolean) => visibleCalls.push(visible),
+				},
+			});
+		});
+
+		assert.deepEqual(visibleCalls, [false, true]);
 	});
 });
 

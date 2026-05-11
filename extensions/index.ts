@@ -163,6 +163,31 @@ function padAnsi(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
 }
 
+export function wrapInlineItems(items: string[], width: number): string[] {
+	const safeWidth = Math.max(1, width);
+	const lines: string[] = [];
+	let currentLine = "";
+
+	for (const item of items) {
+		const fittedItem = visibleWidth(item) > safeWidth ? truncateToWidth(item, safeWidth) : item;
+		if (!currentLine) {
+			currentLine = fittedItem;
+			continue;
+		}
+
+		const candidate = `${currentLine} ${fittedItem}`;
+		if (visibleWidth(candidate) <= safeWidth) {
+			currentLine = candidate;
+		} else {
+			lines.push(currentLine);
+			currentLine = fittedItem;
+		}
+	}
+
+	if (currentLine) lines.push(currentLine);
+	return lines.length > 0 ? lines : [""];
+}
+
 type OptionTextStyle = (text: string) => string;
 
 export interface OptionLabelLineStyles {
@@ -253,8 +278,10 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 			const questions = params.questions;
 			let shouldTerminateAfterDialog = false;
-			const result =
-				(await ctx.ui.custom<AskUserQuestionResult>((tui, theme, _keybindings, done) => {
+			let result: AskUserQuestionResult;
+			ctx.ui.setWorkingVisible(false);
+			try {
+				result = (await ctx.ui.custom<AskUserQuestionResult>((tui, theme, _keybindings, done) => {
 					let currentTabIndex = 0;
 					let optionIndex = 0;
 					let submitPickerIndex = 0;
@@ -606,7 +633,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						}
 					}
 
-					function chipBar(width: number): string {
+					function chipBarLines(width: number): string[] {
 						const chips = questions.map((question, index) => {
 							const answered = Object.hasOwn(answers, question.question);
 							const active = !onSubmitTab() && index === currentQuestionIndex();
@@ -621,7 +648,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 							chips.push(onSubmitTab() ? theme.bg("selectedBg", theme.fg("text", raw)) : theme.fg(allAnswered() ? "success" : "dim", raw));
 						}
 
-						return truncateToWidth(chips.join(" "), width);
+						return wrapInlineItems(chips, width);
 					}
 
 					function addBoxLine(lines: string[], content: string, innerWidth: number) {
@@ -721,7 +748,9 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						const topFill = Math.max(0, safeWidth - visibleWidth(title) - 2);
 
 						lines.push(theme.fg("accent", `╭─${title}${"─".repeat(topFill)}╮`));
-						addBoxLine(lines, chipBar(innerWidth), innerWidth);
+						for (const chipLine of chipBarLines(innerWidth)) {
+							addBoxLine(lines, chipLine, innerWidth);
+						}
 						addBoxLine(lines, "", innerWidth);
 
 						if (!onSubmitTab()) {
@@ -782,6 +811,9 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						handleInput,
 					};
 				})) ?? createCancelledResult();
+			} finally {
+				ctx.ui.setWorkingVisible(true);
+			}
 
 			return {
 				content: [{ type: "text", text: stringifyResult(result) }],
@@ -796,7 +828,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 			const headers = params.questions?.map((question) => question.header).join(", ") ?? "";
 			let text = theme.fg("toolTitle", theme.bold("AskUserQuestion "));
 			text += theme.fg("muted", `${count} question${count === 1 ? "" : "s"}`);
-			if (headers) text += theme.fg("dim", ` (${truncateToWidth(headers, 50)})`);
+			if (headers) text += theme.fg("dim", ` (${headers})`);
 			return new Text(text, 0, 0);
 		},
 
