@@ -1,6 +1,6 @@
 {
   "name": "@mazli/pi-ask-user-question",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Claude Code-style AskUserQuestion tool for pi.",
   "keywords": [
     "pi-package",

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.3.4
+
+- Fix AskUserQuestion dialog top border width so it ends with the corner glyph instead of a truncation ellipsis.
+
 ## v1.3.3
 
 - Wrap long `AskUserQuestion` tool-call summaries and dialog question chips instead of truncating later questions.
