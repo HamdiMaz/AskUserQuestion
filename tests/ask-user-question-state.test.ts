@@ -198,6 +198,29 @@ describe("AskUserQuestion wrapping", () => {
 		assert.match(renderedText, /Tech spec/);
 		assert.match(renderedText, /Startup/);
 	});
+
+	it("keeps the dialog top border within the requested width", async () => {
+		const tool = registerAskUserQuestionTool();
+		let topBorder = "";
+
+		await withInteractiveTty(async () => {
+			await tool.execute("tool-call-id", { questions: [questions[0]!] }, undefined, undefined, {
+				hasUI: true,
+				ui: {
+					custom: async (factory: any) => {
+						const component = factory({ requestRender() {} }, passthroughTheme, undefined, () => {});
+						topBorder = component.render(60)[0] ?? "";
+						return { cancelled: true };
+					},
+					setWorkingVisible() {},
+				},
+			});
+		});
+
+		assert.equal(visibleWidth(topBorder), 60);
+		assert.match(topBorder, /╮$/);
+		assert.doesNotMatch(topBorder, /\.\.\.$/);
+	});
 });
 
 describe("AskUserQuestion working indicator", () => {

@@ -745,7 +745,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						const lines: string[] = [];
 						const question = currentQuestion();
 						const title = onSubmitTab() ? " Review answers " : ` Question ${currentQuestionIndex() + 1}/${questions.length} `;
-						const topFill = Math.max(0, safeWidth - visibleWidth(title) - 2);
+						const topFill = Math.max(0, safeWidth - visibleWidth(title) - 3);
 
 						lines.push(theme.fg("accent", `╭─${title}${"─".repeat(topFill)}╮`));
 						for (const chipLine of chipBarLines(innerWidth)) {
