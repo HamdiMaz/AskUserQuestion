@@ -33,7 +33,7 @@ interface AskUserQuestionResult {
 	annotations?: Record<string, AskUserQuestionAnnotation>;
 }
 
-type DisplayOption = AskUserQuestionOption & { isOther?: boolean };
+export type DisplayOption = AskUserQuestionOption & { isOther?: boolean };
 type InputMode = "other" | "notes" | null;
 
 const OtherLabel = "Other...";
@@ -153,6 +153,97 @@ export function validateParams(params: AskUserQuestionParams): string | undefine
 
 function displayOptions(question: AskUserQuestionQuestion): DisplayOption[] {
 	return [...question.options, { label: OtherLabel, description: "Type a custom answer.", isOther: true }];
+}
+
+function clampOptionIndex(index: number, optionCount: number): number {
+	if (optionCount <= 0) return 0;
+	return Math.min(optionCount - 1, Math.max(0, index));
+}
+
+export function wrapOptionIndex(currentIndex: number, delta: number, optionCount: number): number {
+	if (optionCount <= 0) return 0;
+	return (((currentIndex + delta) % optionCount) + optionCount) % optionCount;
+}
+
+export interface PreferredOptionIndexArgs {
+	questionIndex: number;
+	optionCount: number;
+	multiSelect: boolean;
+	selectedSingle: Map<number, number>;
+	selectedMulti: Map<number, Set<number>>;
+	selectedOtherQuestions: Set<number>;
+	fallbackIndex?: number;
+}
+
+export function preferredOptionIndexForQuestion({
+	questionIndex,
+	optionCount,
+	multiSelect,
+	selectedSingle,
+	selectedMulti,
+	selectedOtherQuestions,
+	fallbackIndex = 0,
+}: PreferredOptionIndexArgs): number {
+	if (optionCount <= 0) return 0;
+
+	const fallback = clampOptionIndex(fallbackIndex, optionCount);
+	const otherIndex = optionCount - 1;
+
+	if (multiSelect) {
+		const selection = selectedMulti.get(questionIndex);
+		const firstSelected = selection
+			? Array.from(selection)
+					.sort((a, b) => a - b)
+					.find((index) => index >= 0 && index < optionCount)
+			: undefined;
+		if (firstSelected !== undefined) return firstSelected;
+		if (selectedOtherQuestions.has(questionIndex)) return otherIndex;
+		return fallback;
+	}
+
+	const selected = selectedSingle.get(questionIndex);
+	if (selected !== undefined && selected >= 0 && selected < optionCount) return selected;
+	if (selectedOtherQuestions.has(questionIndex)) return otherIndex;
+	return fallback;
+}
+
+export function multiAnswerTextFromSelection(
+	questionIndex: number,
+	selection: Set<number>,
+	options: DisplayOption[],
+	selectedOtherQuestions: Set<number>,
+	customOtherAnswers: Map<number, string>,
+): string {
+	const labels = Array.from(selection)
+		.sort((a, b) => a - b)
+		.map((index) => options[index])
+		.filter((option): option is DisplayOption => option !== undefined && option.isOther !== true)
+		.map((option) => option.label);
+
+	if (selectedOtherQuestions.has(questionIndex)) {
+		const customAnswer = customOtherAnswers.get(questionIndex);
+		if (customAnswer !== undefined) labels.push(customAnswer);
+	}
+
+	return labels.join(", ");
+}
+
+export function updateMultiAnswerRecord(
+	question: AskUserQuestionQuestion,
+	questionIndex: number,
+	selection: Set<number>,
+	options: DisplayOption[],
+	selectedOtherQuestions: Set<number>,
+	customOtherAnswers: Map<number, string>,
+	answers: Record<string, string>,
+): void {
+	const hasSelection = selection.size > 0 || selectedOtherQuestions.has(questionIndex);
+	if (!hasSelection) {
+		delete answers[question.question];
+		return;
+	}
+
+	answers[question.question] = multiAnswerTextFromSelection(questionIndex, selection, options, selectedOtherQuestions, customOtherAnswers);
 }
 
 function optionHasPreview(question: AskUserQuestionQuestion): boolean {
@@ -353,18 +444,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 					}
 
 					function multiAnswerText(questionIndex: number, selection: Set<number>, options: DisplayOption[]): string {
-						const labels = Array.from(selection)
-							.sort((a, b) => a - b)
-							.map((index) => options[index])
-							.filter((option): option is DisplayOption => option !== undefined && option.isOther !== true)
-							.map((option) => option.label);
-
-						if (selectedOtherQuestions.has(questionIndex)) {
-							const customAnswer = customOtherAnswers.get(questionIndex);
-							if (customAnswer !== undefined) labels.push(customAnswer);
-						}
-
-						return labels.join(", ");
+						return multiAnswerTextFromSelection(questionIndex, selection, options, selectedOtherQuestions, customOtherAnswers);
 					}
 
 					function allAnswered(): boolean {

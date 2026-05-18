@@ -8,13 +8,17 @@ import askUserQuestion, {
 	hasSubmitTab,
 	isSubmitTab,
 	missingQuestionHeaders,
+	multiAnswerTextFromSelection,
 	nextQuestionOrSubmitTab,
 	optionMarker,
+	preferredOptionIndexForQuestion,
 	promptGuidance,
 	promptSnippet,
 	submitTabIndex,
+	updateMultiAnswerRecord,
 	validateParams,
 	wrapInlineItems,
+	wrapOptionIndex,
 } from "../extensions/index.ts";
 
 const questions = [
@@ -153,6 +157,127 @@ describe("AskUserQuestion submit tab helpers", () => {
 	it("keeps empty multi-select answers visible in review", () => {
 		assert.equal(answerDisplayText(""), "(empty answer)");
 		assert.equal(answerDisplayText("Unit tests"), "Unit tests");
+	});
+});
+
+describe("AskUserQuestion navigation and answer state helpers", () => {
+	it("wraps option focus at both ends", () => {
+		assert.equal(wrapOptionIndex(2, 1, 3), 0);
+		assert.equal(wrapOptionIndex(0, -1, 3), 2);
+		assert.equal(wrapOptionIndex(1, 1, 3), 2);
+		assert.equal(wrapOptionIndex(1, -1, 3), 0);
+	});
+
+	it("restores focus to a selected single-select option", () => {
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 0,
+				optionCount: 3,
+				multiSelect: false,
+				selectedSingle: new Map([[0, 1]]),
+				selectedMulti: new Map(),
+				selectedOtherQuestions: new Set(),
+				fallbackIndex: 0,
+			}),
+			1,
+		);
+	});
+
+	it("restores focus to Other for a custom single-select answer", () => {
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 0,
+				optionCount: 3,
+				multiSelect: false,
+				selectedSingle: new Map(),
+				selectedMulti: new Map(),
+				selectedOtherQuestions: new Set([0]),
+				fallbackIndex: 0,
+			}),
+			2,
+		);
+	});
+
+	it("restores focus to the first selected multi-select option before Other", () => {
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 0,
+				optionCount: 4,
+				multiSelect: true,
+				selectedSingle: new Map(),
+				selectedMulti: new Map([[0, new Set([2, 1])]]),
+				selectedOtherQuestions: new Set([0]),
+				fallbackIndex: 0,
+			}),
+			1,
+		);
+	});
+
+	it("restores focus to Other when it is the only multi-select choice", () => {
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 0,
+				optionCount: 4,
+				multiSelect: true,
+				selectedSingle: new Map(),
+				selectedMulti: new Map([[0, new Set()]]),
+				selectedOtherQuestions: new Set([0]),
+				fallbackIndex: 0,
+			}),
+			3,
+		);
+	});
+
+	it("updates multi-select answer text immediately after Space toggles", () => {
+		const question = {
+			question: "Which layers should we test?",
+			header: "Testing",
+			multiSelect: true,
+			options: [
+				{ label: "Unit", description: "Unit tests." },
+				{ label: "E2E", description: "End-to-end tests." },
+			],
+		};
+		const options = [
+			...question.options,
+			{ label: "Other...", description: "Type a custom answer.", isOther: true },
+		];
+		const answers: Record<string, string> = {};
+		const selection = new Set([1, 0]);
+
+		updateMultiAnswerRecord(question, 0, selection, options, new Set(), new Map(), answers);
+
+		assert.equal(answers[question.question], "Unit, E2E");
+	});
+
+	it("includes a custom Other answer in multi-select answer text", () => {
+		const options = [
+			{ label: "Unit", description: "Unit tests." },
+			{ label: "Other...", description: "Type a custom answer.", isOther: true },
+		];
+
+		assert.equal(multiAnswerTextFromSelection(0, new Set([0]), options, new Set([0]), new Map([[0, "Contract tests"]])), "Unit, Contract tests");
+	});
+
+	it("clears a multi-select answer record when every selected option is deselected", () => {
+		const question = {
+			question: "Which layers should we test?",
+			header: "Testing",
+			multiSelect: true,
+			options: [
+				{ label: "Unit", description: "Unit tests." },
+				{ label: "E2E", description: "End-to-end tests." },
+			],
+		};
+		const answers: Record<string, string> = { [question.question]: "Unit" };
+		const options = [
+			...question.options,
+			{ label: "Other...", description: "Type a custom answer.", isOther: true },
+		];
+
+		updateMultiAnswerRecord(question, 0, new Set(), options, new Set(), new Map(), answers);
+
+		assert.equal(Object.hasOwn(answers, question.question), false);
 	});
 });
 
