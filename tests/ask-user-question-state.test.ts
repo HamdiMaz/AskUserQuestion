@@ -168,6 +168,33 @@ describe("AskUserQuestion navigation and answer state helpers", () => {
 		assert.equal(wrapOptionIndex(1, -1, 3), 0);
 	});
 
+	it("defaults unanswered questions to the first option when switching from another cursor position", () => {
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 1,
+				optionCount: 3,
+				multiSelect: false,
+				selectedSingle: new Map([[0, 2]]),
+				selectedMulti: new Map(),
+				selectedOtherQuestions: new Set(),
+				fallbackIndex: 2,
+			}),
+			0,
+		);
+		assert.equal(
+			preferredOptionIndexForQuestion({
+				questionIndex: 1,
+				optionCount: 3,
+				multiSelect: true,
+				selectedSingle: new Map(),
+				selectedMulti: new Map([[0, new Set([2])]]),
+				selectedOtherQuestions: new Set(),
+				fallbackIndex: 2,
+			}),
+			0,
+		);
+	});
+
 	it("restores focus to a selected single-select option", () => {
 		assert.equal(
 			preferredOptionIndexForQuestion({

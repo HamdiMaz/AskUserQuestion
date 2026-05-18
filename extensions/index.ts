@@ -155,11 +155,6 @@ function displayOptions(question: AskUserQuestionQuestion): DisplayOption[] {
 	return [...question.options, { label: OtherLabel, description: "Type a custom answer.", isOther: true }];
 }
 
-function clampOptionIndex(index: number, optionCount: number): number {
-	if (optionCount <= 0) return 0;
-	return Math.min(optionCount - 1, Math.max(0, index));
-}
-
 export function wrapOptionIndex(currentIndex: number, delta: number, optionCount: number): number {
 	if (optionCount <= 0) return 0;
 	return (((currentIndex + delta) % optionCount) + optionCount) % optionCount;
@@ -182,11 +177,9 @@ export function preferredOptionIndexForQuestion({
 	selectedSingle,
 	selectedMulti,
 	selectedOtherQuestions,
-	fallbackIndex = 0,
 }: PreferredOptionIndexArgs): number {
 	if (optionCount <= 0) return 0;
 
-	const fallback = clampOptionIndex(fallbackIndex, optionCount);
 	const otherIndex = optionCount - 1;
 
 	if (multiSelect) {
@@ -198,13 +191,13 @@ export function preferredOptionIndexForQuestion({
 			: undefined;
 		if (firstSelected !== undefined) return firstSelected;
 		if (selectedOtherQuestions.has(questionIndex)) return otherIndex;
-		return fallback;
+		return 0;
 	}
 
 	const selected = selectedSingle.get(questionIndex);
 	if (selected !== undefined && selected >= 0 && selected < optionCount) return selected;
 	if (selectedOtherQuestions.has(questionIndex)) return otherIndex;
-	return fallback;
+	return 0;
 }
 
 export function multiAnswerTextFromSelection(
