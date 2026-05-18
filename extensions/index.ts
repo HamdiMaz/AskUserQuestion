@@ -426,6 +426,28 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						return displayOptions(currentQuestion());
 					}
 
+					function preferredCurrentOptionIndex(fallbackIndex = optionIndex): number {
+						return preferredOptionIndexForQuestion({
+							questionIndex: currentQuestionIndex(),
+							optionCount: currentOptions().length,
+							multiSelect: currentQuestion().multiSelect,
+							selectedSingle,
+							selectedMulti,
+							selectedOtherQuestions,
+							fallbackIndex,
+						});
+					}
+
+					function focusCurrentTab(fallbackIndex = optionIndex) {
+						optionIndex = onSubmitTab() ? 0 : preferredCurrentOptionIndex(fallbackIndex);
+					}
+
+					function updateCurrentMultiAnswer() {
+						const question = currentQuestion();
+						const questionIndex = currentQuestionIndex();
+						updateMultiAnswerRecord(question, questionIndex, currentMultiSelection(), currentOptions(), selectedOtherQuestions, customOtherAnswers, answers);
+					}
+
 					function currentMultiSelection(): Set<number> {
 						const questionIndex = currentQuestionIndex();
 						let selection = selectedMulti.get(questionIndex);
@@ -464,7 +486,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 						const next = nextQuestionOrSubmitTab(currentQuestionIndex(), questions, answers);
 						currentTabIndex = next === "submit" ? reviewTabIndex : next;
-						optionIndex = 0;
+						focusCurrentTab(0);
 						submitPickerIndex = 0;
 						statusMessage = "";
 						refresh();
@@ -504,7 +526,11 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 							refresh();
 							return;
 						}
-						answers[question.question] = multiAnswerText(questionIndex, selection, currentOptions());
+						if (hasSelection) {
+							updateCurrentMultiAnswer();
+						} else {
+							answers[question.question] = "";
+						}
 						moveToNextQuestionOrReview();
 					}
 
@@ -531,7 +557,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 							selectedOtherQuestions.add(questionIndex);
 							customOtherAnswers.set(questionIndex, text);
 							if (question.multiSelect) {
-								answers[question.question] = multiAnswerText(questionIndex, currentMultiSelection(), options);
+								updateCurrentMultiAnswer();
 							} else {
 								selectedSingle.set(questionIndex, options.length - 1);
 								answers[question.question] = text;
@@ -570,6 +596,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 					}
 
 					function toggleFocusedMultiOption() {
+						const question = currentQuestion();
 						const options = currentOptions();
 						const option = options[optionIndex];
 						if (!option) return;
@@ -584,8 +611,9 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						} else {
 							selection.add(optionIndex);
 						}
+						updateCurrentMultiAnswer();
 						emptySelectionWarnings.delete(currentQuestionIndex());
-						statusMessage = "";
+						statusMessage = question.multiSelect && Object.hasOwn(answers, question.question) ? "Answer updated." : "";
 						refresh();
 					}
 
@@ -629,7 +657,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						const totalTabs = multiQuestion ? questions.length + 1 : questions.length;
 						if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
 							currentTabIndex = (currentTabIndex + 1) % totalTabs;
-							optionIndex = onSubmitTab() ? 0 : Math.min(optionIndex, currentOptions().length - 1);
+							focusCurrentTab();
 							submitPickerIndex = 0;
 							statusMessage = "";
 							refresh();
@@ -637,7 +665,7 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						}
 						if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
 							currentTabIndex = (currentTabIndex - 1 + totalTabs) % totalTabs;
-							optionIndex = onSubmitTab() ? 0 : Math.min(optionIndex, currentOptions().length - 1);
+							focusCurrentTab();
 							submitPickerIndex = 0;
 							statusMessage = "";
 							refresh();
@@ -646,13 +674,13 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 
 						if (onSubmitTab()) {
 							if (matchesKey(data, Key.up) || matchesKey(data, "k")) {
-								submitPickerIndex = Math.max(0, submitPickerIndex - 1);
+								submitPickerIndex = wrapOptionIndex(submitPickerIndex, -1, 2);
 								statusMessage = "";
 								refresh();
 								return;
 							}
 							if (matchesKey(data, Key.down) || matchesKey(data, "j")) {
-								submitPickerIndex = Math.min(1, submitPickerIndex + 1);
+								submitPickerIndex = wrapOptionIndex(submitPickerIndex, 1, 2);
 								statusMessage = "";
 								refresh();
 								return;
@@ -678,13 +706,13 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 						const options = currentOptions();
 
 						if (matchesKey(data, Key.up) || matchesKey(data, "k")) {
-							optionIndex = Math.max(0, optionIndex - 1);
+							optionIndex = wrapOptionIndex(optionIndex, -1, options.length);
 							statusMessage = "";
 							refresh();
 							return;
 						}
 						if (matchesKey(data, Key.down) || matchesKey(data, "j")) {
-							optionIndex = Math.min(options.length - 1, optionIndex + 1);
+							optionIndex = wrapOptionIndex(optionIndex, 1, options.length);
 							statusMessage = "";
 							refresh();
 							return;
