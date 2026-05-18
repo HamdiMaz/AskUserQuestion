@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.3.6
+
+- Default unanswered questions to the first option when switching between questions.
+- Refresh AskUserQuestion screenshot assets for the current dialog styling.
+
 ## v1.3.5
 
 - Wrap AskUserQuestion option navigation from last to first and first to last.
