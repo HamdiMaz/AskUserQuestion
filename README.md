@@ -26,23 +26,23 @@ These examples show the full multi-question flow rendered by the tool.
 
 ### Single-select and custom `Other...` answers
 
-![Single-select question with a custom Other answer](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.3/screenshots/screenshot-2026-05-09_04-01-35.png)
+![Single-select question with a custom Other answer](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.6/screenshots/screenshot-2026-05-18_17-13-39.png)
 
 ### Multi-select choices
 
-![Multi-select question with selected choices](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.3/screenshots/screenshot-2026-05-09_04-02-00.png)
+![Multi-select question with selected choices](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.6/screenshots/screenshot-2026-05-18_17-14-08.png)
 
 ### Side-by-side preview panel
 
-![Single-select question with a side-by-side preview panel](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.3/screenshots/screenshot-2026-05-09_04-02-26.png)
+![Single-select question with a side-by-side preview panel](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.6/screenshots/screenshot-2026-05-18_17-14-48.png)
 
 ### Focus and answered-tab states
 
-![Question showing focused answer and completed question tabs](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.3/screenshots/screenshot-2026-05-09_04-02-47.png)
+![Question showing focused answer and completed question tabs](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.6/screenshots/screenshot-2026-05-18_17-15-12.png)
 
 ### Review and submit step
 
-![Review answers screen before submitting](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.3/screenshots/screenshot-2026-05-09_04-03-04.png)
+![Review answers screen before submitting](https://raw.githubusercontent.com/HamdiMaz/AskUserQuestion/v1.3.6/screenshots/screenshot-2026-05-18_17-15-40.png)
 
 ## Install
 

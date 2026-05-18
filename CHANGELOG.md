@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.3.7
+
+- Point README screenshot links at the refreshed v1.3.6 image assets.
+
 ## v1.3.6
 
 - Default unanswered questions to the first option when switching between questions.
