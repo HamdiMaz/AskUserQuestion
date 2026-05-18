@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.3.5
+
 - Wrap AskUserQuestion option navigation from last to first and first to last.
 - Restore focus to the chosen option when revisiting answered questions.
 - Count multi-select Space toggles as answered immediately while keeping Enter available for advancing and empty-answer confirmation.
