@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Wrap AskUserQuestion option navigation from last to first and first to last.
+- Restore focus to the chosen option when revisiting answered questions.
+- Count multi-select Space toggles as answered immediately while keeping Enter available for advancing and empty-answer confirmation.
+
 ## v1.3.4
 
 - Fix AskUserQuestion dialog top border width so it ends with the corner glyph instead of a truncation ellipsis.
