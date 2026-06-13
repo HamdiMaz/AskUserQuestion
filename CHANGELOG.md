@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove the hard 12-character `header` length limit. The TUI already wraps long headers via `wrapInlineItems`/`truncateToWidth`, so the validation was a false-positive failure source for non-English languages and chip-style long labels. Schema description, prompt guidelines, README, and tests updated accordingly.
+
 ## v1.3.7
 
 - Point README screenshot links at the refreshed v1.3.6 image assets.
