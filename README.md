@@ -140,7 +140,7 @@ Authoring rules:
 - Provide 2–4 options per question.
 - Never include an `Other` option; the tool adds it automatically.
 - If recommending an option, place it first and suffix the label with ` (Recommended)`.
-- Keep `header` at 12 characters or less.
+- Keep `header` short for legibility (~12 chars is a good target). The TUI wraps longer headers automatically; no hard limit is enforced.
 - End each question with `?`.
 - Use previews only for single-select visual/code comparisons.
 

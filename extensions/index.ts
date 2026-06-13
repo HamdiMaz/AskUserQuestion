@@ -50,7 +50,7 @@ const OptionSchema = Type.Object(
 const QuestionSchema = Type.Object(
 	{
 		question: Type.String({ description: "Full question, ends with '?'." }),
-		header: Type.String({ description: "Short chip label, ≤12 chars." }),
+		header: Type.String({ description: "Short chip label. Long headers are wrapped by the TUI; aim for ~12 chars but no hard limit is enforced." }),
 		multiSelect: Type.Boolean({ default: false }),
 		options: Type.Array(OptionSchema, {
 			minItems: 2,
@@ -105,7 +105,7 @@ Authoring rules:
 1-8 questions per call. 2-4 options per question.
 Never include an "Other" option; the harness adds one.
 Place your recommended option first and suffix its label with " (Recommended)".
-Keep header ≤12 chars and label to 1-5 words.
+Keep header short for legibility (~12 chars is a good target), but no hard length limit is enforced; the TUI wraps long headers automatically. Label 1-5 words.
 Use preview only for visual comparisons, and only on single-select questions.
 question must end with ?. Phrase multi-select questions in plural ("Which features…").`;
 
@@ -123,9 +123,6 @@ export function validateParams(params: AskUserQuestionParams): string | undefine
 
 		if (q.options.length < 2 || q.options.length > 4) {
 			return "each question needs 2–4 options";
-		}
-		if (q.header.length > 12) {
-			return `header exceeds 12 chars: ${q.header}`;
 		}
 		if (!q.question.trimEnd().endsWith("?")) {
 			return "question must end with '?'";

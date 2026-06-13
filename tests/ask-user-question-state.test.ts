@@ -115,6 +115,31 @@ describe("AskUserQuestion validation", () => {
 		};
 		assert.equal(validateParams(invalid), "preview is only supported on single-select questions");
 	});
+
+	it("accepts headers longer than 12 chars (the TUI wraps them)", () => {
+		// Non-English languages and chip-style long labels (e.g. "Roboto šriftas kairėje pusėje ekrano")
+		// often exceed 12 chars. The TUI's wrapInlineItems/truncateToWidth handle long headers
+		// gracefully, so a hard limit only causes false-positive validation failures.
+		const result = validateParams({
+			questions: [
+				{
+					question: "Kuris šriftas geriausias?",
+					header: "Roboto šriftas kairėje pusėje ekrano",
+					multiSelect: false,
+					options: [
+						{ label: "Roboto", description: "Google šriftas." },
+						{ label: "SF Pro", description: "Sisteminis šriftas." },
+					],
+				},
+			],
+		});
+		assert.equal(result, undefined);
+	});
+
+	it("still accepts short headers and other existing rules", () => {
+		// Sanity check that the relaxed header check did not regress any other rule.
+		assert.equal(validateParams({ questions }), undefined);
+	});
 });
 
 describe("AskUserQuestion prompt guidance", () => {
