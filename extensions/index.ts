@@ -38,6 +38,39 @@ type InputMode = "other" | "notes" | null;
 
 const OtherLabel = "Other...";
 
+const MAX_HEADER_LENGTH = 12;
+
+/**
+ * Repairs the common, intent-preserving mistakes agents make when calling
+ * AskUserQuestion, so a trivial slip does not cost a full rejected round-trip:
+ *
+ * - header longer than 12 chars  -> truncated to 12 (header is only the tab label)
+ * - question not ending in '?'    -> a single '?' is appended
+ * - an author-supplied "Other" option -> dropped (the harness always adds one)
+ *
+ * Everything else still falls through to validateParams, which rejects what
+ * cannot be safely auto-corrected. Returns a new params object; the input is
+ * not mutated.
+ */
+export function normalizeParams(params: AskUserQuestionParams): AskUserQuestionParams {
+	const questions = (params.questions ?? []).map((q) => {
+		const trimmedQuestion = typeof q.question === "string" ? q.question.trimEnd() : q.question;
+		const question = typeof trimmedQuestion === "string" && trimmedQuestion.length > 0 && !trimmedQuestion.endsWith("?") ? `${trimmedQuestion}?` : trimmedQuestion;
+
+		const header = typeof q.header === "string" && q.header.length > MAX_HEADER_LENGTH ? q.header.slice(0, MAX_HEADER_LENGTH) : q.header;
+
+		const options = Array.isArray(q.options)
+			? q.options.filter((option) => {
+					const labelKey = (option?.label ?? "").trim().toLowerCase().replace(/[.!…]+$/u, "");
+					return labelKey !== "other";
+				})
+			: q.options;
+
+		return { ...q, question, header, options };
+	});
+	return { ...params, questions };
+}
+
 const OptionSchema = Type.Object(
 	{
 		label: Type.String({ description: "1-5 word display text." }),
@@ -111,31 +144,31 @@ question must end with ?. Phrase multi-select questions in plural ("Which featur
 
 export function validateParams(params: AskUserQuestionParams): string | undefined {
 	if (params.questions.length < 1 || params.questions.length > 8) {
-		return "questions must have 1–8 items";
+		return `questions must have 1–8 items (got ${params.questions.length})`;
 	}
 
 	const seenQuestions = new Set<string>();
 	for (const q of params.questions) {
 		if (seenQuestions.has(q.question)) {
-			return "duplicate question text; result keying would collide";
+			return `duplicate question text '${q.question}'; each question must be unique (result keying would collide)`;
 		}
 		seenQuestions.add(q.question);
 
 		if (q.options.length < 2 || q.options.length > 4) {
-			return "each question needs 2–4 options";
+			return `question '${q.question}' needs 2–4 options (got ${q.options.length}); the harness adds 'Other...' automatically, so do not count it`;
 		}
-		if (q.header.length > 12) {
-			return `header exceeds 12 chars: ${q.header}`;
+		if (q.header.length > MAX_HEADER_LENGTH) {
+			return `header '${q.header}' exceeds ${MAX_HEADER_LENGTH} chars (got ${q.header.length}); use a shorter tab label`;
 		}
 		if (!q.question.trimEnd().endsWith("?")) {
-			return "question must end with '?'";
+			return `question '${q.question}' must end with '?'`;
 		}
 
 		const seenLabels = new Set<string>();
 		for (const option of q.options) {
 			const labelKey = option.label.trim().toLowerCase();
 			if (seenLabels.has(labelKey)) {
-				return `duplicate label '${option.label}' in question '${q.question}'`;
+				return `duplicate label '${option.label}' in question '${q.question}'; option labels must be unique`;
 			}
 			seenLabels.add(labelKey);
 
@@ -144,7 +177,7 @@ export function validateParams(params: AskUserQuestionParams): string | undefine
 				return "do not include an 'Other' option; it is added automatically";
 			}
 			if (q.multiSelect && option.preview !== undefined) {
-				return "preview is only supported on single-select questions";
+				return `preview is only supported on single-select questions (question '${q.question}' is multiSelect)`;
 			}
 		}
 	}
@@ -351,7 +384,8 @@ export default function askUserQuestion(pi: ExtensionAPI) {
 		promptGuidelines: [`Use AskUserQuestion as follows:\n\n${promptGuidance}`],
 		parameters: AskUserQuestionParameters,
 
-		async execute(_toolCallId, params: AskUserQuestionParams, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, rawParams: AskUserQuestionParams, _signal, _onUpdate, ctx) {
+			const params = normalizeParams(rawParams);
 			const validationError = validateParams(params);
 			if (validationError) {
 				throw new Error(validationError);

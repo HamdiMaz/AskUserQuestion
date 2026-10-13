@@ -10,6 +10,7 @@ import askUserQuestion, {
 	missingQuestionHeaders,
 	multiAnswerTextFromSelection,
 	nextQuestionOrSubmitTab,
+	normalizeParams,
 	optionMarker,
 	preferredOptionIndexForQuestion,
 	promptGuidance,
@@ -96,7 +97,7 @@ describe("AskUserQuestion validation", () => {
 	});
 
 	it("rejects duplicate question text", () => {
-		assert.equal(validateParams({ questions: [questions[0]!, questions[0]!] }), "duplicate question text; result keying would collide");
+		assert.equal(validateParams({ questions: [questions[0]!, questions[0]!] }), "duplicate question text 'Which scope should we use?'; each question must be unique (result keying would collide)");
 	});
 
 	it("rejects previews on multi-select questions", () => {
@@ -113,7 +114,46 @@ describe("AskUserQuestion validation", () => {
 				},
 			],
 		};
-		assert.equal(validateParams(invalid), "preview is only supported on single-select questions");
+		assert.equal(validateParams(invalid), "preview is only supported on single-select questions (question 'Which layers should we test?' is multiSelect)");
+	});
+});
+
+describe("AskUserQuestion normalization", () => {
+	it("truncates a header longer than 12 chars", () => {
+		const normalized = normalizeParams({
+			questions: [{ question: "Which path?", header: "Auto-correction", multiSelect: false, options: [{ label: "A", description: "a" }, { label: "B", description: "b" }] }],
+		});
+		assert.equal(normalized.questions[0]!.header, "Auto-correct");
+		assert.equal(normalized.questions[0]!.header.length, 12);
+		assert.equal(validateParams(normalized), undefined);
+	});
+
+	it("appends a missing question mark", () => {
+		const normalized = normalizeParams({
+			questions: [{ question: "Which path", header: "Path", multiSelect: false, options: [{ label: "A", description: "a" }, { label: "B", description: "b" }] }],
+		});
+		assert.equal(normalized.questions[0]!.question, "Which path?");
+		assert.equal(validateParams(normalized), undefined);
+	});
+
+	it("does not double a question mark that is already present", () => {
+		const normalized = normalizeParams({
+			questions: [{ question: "Which path?", header: "Path", multiSelect: false, options: [{ label: "A", description: "a" }, { label: "B", description: "b" }] }],
+		});
+		assert.equal(normalized.questions[0]!.question, "Which path?");
+	});
+
+	it("drops an author-supplied Other option", () => {
+		const normalized = normalizeParams({
+			questions: [{ question: "Which path?", header: "Path", multiSelect: false, options: [{ label: "A", description: "a" }, { label: "B", description: "b" }, { label: "Other", description: "custom" }] }],
+		});
+		assert.equal(normalized.questions[0]!.options.length, 2);
+		assert.deepEqual(normalized.questions[0]!.options.map((o) => o.label), ["A", "B"]);
+		assert.equal(validateParams(normalized), undefined);
+	});
+
+	it("leaves a valid payload unchanged", () => {
+		assert.equal(validateParams(normalizeParams({ questions })), undefined);
 	});
 });
 
